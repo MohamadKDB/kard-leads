@@ -8,18 +8,26 @@ const STATUSES = [
   { key: 'fechado', label: 'Fechado', color: 'var(--green)' },
   { key: 'perdido', label: 'Perdido', color: 'var(--red)' },
   { key: 'nao_atende', label: 'Não atende', color: 'var(--gray)' },
+  { key: 'numero_invalido', label: 'Número inválido', color: '#e0a458' },
 ]
+
+const STATUS_MAP = Object.fromEntries(STATUSES.map((s) => [s.key, s]))
+
+const OPERACIONAL_COLS = ['a_ligar', 'em_contato']
+const FECHADOS_COLS = ['fechado', 'perdido', 'nao_atende', 'numero_invalido']
 
 const NEXT = {
   a_ligar: [
     { to: 'em_contato', label: '📞 Em contato', kind: 'contato' },
     { to: 'perdido', label: '✕ Perdido', kind: 'perdido' },
     { to: 'nao_atende', label: '⊘ Não atende', kind: 'naoatende' },
+    { to: 'numero_invalido', label: '⚠ Nº inválido', kind: 'numinvalido' },
   ],
   em_contato: [
     { to: 'fechado', label: '✅ Fechou', kind: 'fechou' },
     { to: 'perdido', label: '✕ Perdido', kind: 'perdido' },
     { to: 'nao_atende', label: '⊘ Não atende', kind: 'naoatende' },
+    { to: 'numero_invalido', label: '⚠ Nº inválido', kind: 'numinvalido' },
   ],
   fechado: [{ to: 'a_ligar', label: '↩ Reabrir', kind: 'reabrir' }],
   perdido: [{ to: 'a_ligar', label: '↩ Reabrir', kind: 'reabrir' }],
@@ -27,6 +35,7 @@ const NEXT = {
     { to: 'a_ligar', label: '↩ Reabrir', kind: 'reabrir' },
     { to: 'em_contato', label: '📞 Em contato', kind: 'contato' },
   ],
+  numero_invalido: [{ to: 'a_ligar', label: '↩ Reabrir', kind: 'reabrir' }],
 }
 
 const brl = (v) => {
@@ -244,6 +253,38 @@ function AjustesTab({ operadores, onAdd, onRemove }) {
   )
 }
 
+function Board({ columns, visible, loading, busyIds, onStatus, onNumeroOk, onClienteAtendeu }) {
+  return (
+    <div className={`board cols-${columns.length}`}>
+      {columns.map((key) => {
+        const st = STATUS_MAP[key]
+        const items = visible.filter((l) => l.status === key)
+        return (
+          <div className="column" key={key}>
+            <h2>
+              <span className="dot" style={{ background: st.color }} />
+              {st.label}
+              <span className="count">{items.length}</span>
+            </h2>
+            {loading && <div className="empty">Carregando…</div>}
+            {!loading && items.length === 0 && <div className="empty">Nenhum lead aqui</div>}
+            {items.map((l) => (
+              <LeadCard
+                key={l.id}
+                lead={l}
+                busy={busyIds.has(l.id)}
+                onStatus={onStatus}
+                onNumeroOk={onNumeroOk}
+                onClienteAtendeu={onClienteAtendeu}
+              />
+            ))}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export default function App() {
   const [leads, setLeads] = useState([])
   const [query, setQuery] = useState('')
@@ -453,6 +494,9 @@ export default function App() {
         <button className={`tab ${activeTab === 'operacional' ? 'tab-active' : ''}`} onClick={() => setActiveTab('operacional')}>
           📊 Operacional
         </button>
+        <button className={`tab ${activeTab === 'fechados' ? 'tab-active' : ''}`} onClick={() => setActiveTab('fechados')}>
+          🗂️ Fechados
+        </button>
         <button className={`tab ${activeTab === 'relatório' ? 'tab-active' : ''}`} onClick={() => setActiveTab('relatório')}>
           📈 Relatório
         </button>
@@ -471,33 +515,28 @@ export default function App() {
             <Metric value={metrics.conv} label="Conversão" />
           </div>
 
-          <div className="board">
-            {STATUSES.map((st) => {
-              const items = visible.filter((l) => l.status === st.key)
-              return (
-                <div className="column" key={st.key}>
-                  <h2>
-                    <span className="dot" style={{ background: st.color }} />
-                    {st.label}
-                    <span className="count">{items.length}</span>
-                  </h2>
-                  {loading && <div className="empty">Carregando…</div>}
-                  {!loading && items.length === 0 && <div className="empty">Nenhum lead aqui</div>}
-                  {items.map((l) => (
-                    <LeadCard
-                      key={l.id}
-                      lead={l}
-                      busy={busyIds.has(l.id)}
-                      onStatus={setStatus}
-                      onNumeroOk={setNumeroOk}
-                      onClienteAtendeu={setClienteAtendeu}
-                    />
-                  ))}
-                </div>
-              )
-            })}
-          </div>
+          <Board
+            columns={OPERACIONAL_COLS}
+            visible={visible}
+            loading={loading}
+            busyIds={busyIds}
+            onStatus={setStatus}
+            onNumeroOk={setNumeroOk}
+            onClienteAtendeu={setClienteAtendeu}
+          />
         </>
+      )}
+
+      {activeTab === 'fechados' && (
+        <Board
+          columns={FECHADOS_COLS}
+          visible={visible}
+          loading={loading}
+          busyIds={busyIds}
+          onStatus={setStatus}
+          onNumeroOk={setNumeroOk}
+          onClienteAtendeu={setClienteAtendeu}
+        />
       )}
 
       {activeTab === 'relatório' && <RelatorioTab leads={leads} metrics={metrics} />}
