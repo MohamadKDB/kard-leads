@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://staging-n8n-editor.easypanel.spyralinnovation.com.br/webhook'
 
 const STATUSES = [
-  { key: 'a_ligar', label: 'A ligar', color: 'var(--amber)' },
+  { key: 'a_ligar', label: 'A ligar', color: 'var(--primary)' },
   { key: 'em_contato', label: 'Em contato', color: 'var(--blue)' },
   { key: 'fechado', label: 'Fechado', color: 'var(--green)' },
   { key: 'perdido', label: 'Perdido', color: 'var(--red)' },
@@ -64,6 +64,11 @@ const fmtDur = (ms) => {
   return `${Math.floor(m / 60)}h ${m % 60}min`
 }
 
+const isValidPhone = (p) => {
+  const digits = String(p || '').replace(/\D/g, '')
+  return digits.length === 11
+}
+
 function Metric({ value, label }) {
   return (
     <div className="metric">
@@ -73,10 +78,14 @@ function Metric({ value, label }) {
   )
 }
 
-function LeadCard({ lead, busy, onStatus }) {
+function LeadCard({ lead, busy, onStatus, onNumeroOk, onClienteAtendeu }) {
   const actions = NEXT[lead.status] || []
+  const phoneValid = isValidPhone(lead.phone)
+  const numeroStatus = lead.numero_ok || (phoneValid ? 'desconhecido' : 'invalido')
+
   return (
     <div className={`card ${busy ? 'card-busy' : ''}`}>
+      <div className="card-resp" style={{ marginBottom: '6px' }}>👤 {lead.responsavel || 'Sem responsável'}</div>
       <div className="card-name">{lead.nome || 'Sem nome'}</div>
       <div className="card-value">
         {brl(lead.valor_liberado)}
@@ -86,9 +95,47 @@ function LeadCard({ lead, busy, onStatus }) {
         CPF {cpfMask(lead.taxpayer_id)}
         <br />
         📞 {phoneMask(lead.phone)}
+        {numeroStatus !== 'desconhecido' && (
+          <span className={`numero-status ${numeroStatus}`}>
+            {numeroStatus === 'ok' ? '✅ OK' : '⚠️ Inválido'}
+          </span>
+        )}
         {lead.score ? <> · score {lead.score}</> : null}
       </div>
-      {lead.responsavel && <div className="card-resp">👤 {lead.responsavel}</div>}
+      <div className="atendeu-check">
+        <input
+          type="checkbox"
+          id={`atendeu-${lead.id}`}
+          checked={lead.cliente_atendeu || false}
+          onChange={(e) => onClienteAtendeu(lead.id, e.target.checked)}
+          disabled={busy}
+        />
+        <label htmlFor={`atendeu-${lead.id}`}>Cliente atendeu</label>
+      </div>
+      <div style={{ marginTop: '8px' }}>
+        <label style={{ fontSize: '11px', color: 'var(--muted)' }}>
+          Número:
+          <select
+            value={lead.numero_ok || ''}
+            onChange={(e) => onNumeroOk(lead.id, e.target.value || null)}
+            disabled={busy}
+            style={{
+              marginLeft: '6px',
+              background: 'var(--panel2)',
+              border: '1px solid var(--line)',
+              color: 'var(--text)',
+              borderRadius: '4px',
+              padding: '3px 6px',
+              font: 'inherit',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="">Desconhecido</option>
+            <option value="ok">✅ OK</option>
+            <option value="invalido">⚠️ Inválido</option>
+          </select>
+        </label>
+      </div>
       <div className="card-ago">
         Entrou {ago(lead.created_at)}
         {lead.fechado_em ? <> · fechado {ago(lead.fechado_em)}</> : null}
@@ -106,6 +153,61 @@ function LeadCard({ lead, busy, onStatus }) {
   )
 }
 
+function RelatorioTab({ leads, metrics }) {
+  const statusBreakdown = useMemo(() => {
+    return STATUSES.map((st) => ({
+      ...st,
+      count: leads.filter((l) => l.status === st.key).length,
+    }))
+  }, [leads])
+
+  const atendidos = leads.filter((l) => l.cliente_atendeu).length
+  const numerosOk = leads.filter((l) => l.numero_ok === 'ok').length
+
+  return (
+    <div className="relatorio-container">
+      <div className="relatorio-section">
+        <h3>📊 Métricas Principais</h3>
+        <div className="metrics" style={{ marginBottom: '0' }}>
+          <Metric value={metrics.total} label="Leads totais" />
+          <Metric value={metrics.hoje} label="Entraram hoje" />
+          <Metric value={metrics.fila} label="Na fila" />
+          <Metric value={metrics.fechados} label="Fechados" />
+          <Metric value={metrics.conv} label="Conversão" />
+          <Metric value={metrics.tMedio} label="Tempo médio" />
+        </div>
+      </div>
+
+      <div className="relatorio-section">
+        <h3>📞 Atendimento</h3>
+        <div className="metrics" style={{ marginBottom: '0' }}>
+          <Metric value={atendidos} label="Clientes atendidos" />
+          <Metric value={numerosOk} label="Números válidos" />
+          <Metric value={`${Math.round((atendidos * 100) / (leads.length || 1))}%`} label="Taxa de contato" />
+        </div>
+      </div>
+
+      <div className="relatorio-section">
+        <h3>📈 Status dos Leads</h3>
+        <div className="status-breakdown">
+          {statusBreakdown.map((st) => (
+            <div key={st.key} className="status-item">
+              <div className="status-item-label">{st.label}</div>
+              <div className="status-item-value">{st.count}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="relatorio-section">
+        <p style={{ color: 'var(--muted)', fontSize: '12px', fontStyle: 'italic' }}>
+          Dados avançados (histórico detalhado, performance por operador) virão em breve.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [leads, setLeads] = useState([])
   const [query, setQuery] = useState('')
@@ -113,6 +215,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [busyIds, setBusyIds] = useState(new Set())
   const [user, setUser] = useState(() => localStorage.getItem('kardcrm_user') || '')
+  const [activeTab, setActiveTab] = useState('operacional')
 
   const load = useCallback(async () => {
     try {
@@ -150,10 +253,17 @@ export default function App() {
     const responsavel = askUser(false)
     setBusyIds((s) => new Set(s).add(id))
     try {
+      const lead = leads.find((l) => l.id === id)
       const r = await fetch(`${API_BASE}/kard-crm-status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status, responsavel }),
+        body: JSON.stringify({
+          id,
+          status,
+          responsavel,
+          numero_ok: lead?.numero_ok,
+          cliente_atendeu: lead?.cliente_atendeu,
+        }),
       })
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       setLeads((ls) =>
@@ -172,6 +282,59 @@ export default function App() {
       setError('')
     } catch (e) {
       setError(`Erro ao atualizar status (${e.message})`)
+    } finally {
+      setBusyIds((s) => {
+        const n = new Set(s)
+        n.delete(id)
+        return n
+      })
+    }
+  }
+
+  const setNumeroOk = async (id, value) => {
+    setBusyIds((s) => new Set(s).add(id))
+    try {
+      const lead = leads.find((l) => l.id === id)
+      const r = await fetch(`${API_BASE}/kard-crm-numero-ok`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          numero_ok: value,
+          responsavel: user || 'indefinido',
+        }),
+      })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      setLeads((ls) => ls.map((l) => (l.id === id ? { ...l, numero_ok: value } : l)))
+      setError('')
+    } catch (e) {
+      setError(`Erro ao atualizar número (${e.message})`)
+    } finally {
+      setBusyIds((s) => {
+        const n = new Set(s)
+        n.delete(id)
+        return n
+      })
+    }
+  }
+
+  const setClienteAtendeu = async (id, value) => {
+    setBusyIds((s) => new Set(s).add(id))
+    try {
+      const r = await fetch(`${API_BASE}/kard-crm-cliente-atendeu`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          cliente_atendeu: value,
+          responsavel: user || 'indefinido',
+        }),
+      })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      setLeads((ls) => ls.map((l) => (l.id === id ? { ...l, cliente_atendeu: value } : l)))
+      setError('')
+    } catch (e) {
+      setError(`Erro ao atualizar atendimento (${e.message})`)
     } finally {
       setBusyIds((s) => {
         const n = new Set(s)
@@ -233,34 +396,62 @@ export default function App() {
 
       {error && <div className="error-banner">{error}</div>}
 
-      <div className="metrics">
-        <Metric value={metrics.total} label="Leads totais" />
-        <Metric value={metrics.hoje} label="Entraram hoje" />
-        <Metric value={metrics.fila} label="Na fila (a ligar)" />
-        <Metric value={metrics.fechados} label="Fechados" />
-        <Metric value={metrics.conv} label="Conversão" />
-        <Metric value={metrics.tMedio} label="Tempo médio até contato" />
-      </div>
+      <nav className="tabs">
+        <button
+          className={`tab ${activeTab === 'operacional' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('operacional')}
+        >
+          📊 Operacional
+        </button>
+        <button
+          className={`tab ${activeTab === 'relatório' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('relatório')}
+        >
+          📈 Relatório
+        </button>
+      </nav>
 
-      <div className="board">
-        {STATUSES.map((st) => {
-          const items = visible.filter((l) => l.status === st.key)
-          return (
-            <div className="column" key={st.key}>
-              <h2>
-                <span className="dot" style={{ background: st.color }} />
-                {st.label}
-                <span className="count">{items.length}</span>
-              </h2>
-              {loading && <div className="empty">Carregando…</div>}
-              {!loading && items.length === 0 && <div className="empty">Nenhum lead aqui</div>}
-              {items.map((l) => (
-                <LeadCard key={l.id} lead={l} busy={busyIds.has(l.id)} onStatus={setStatus} />
-              ))}
-            </div>
-          )
-        })}
-      </div>
+      {activeTab === 'operacional' && (
+        <>
+          <div className="metrics">
+            <Metric value={metrics.total} label="Leads totais" />
+            <Metric value={metrics.hoje} label="Entraram hoje" />
+            <Metric value={metrics.fila} label="Na fila (a ligar)" />
+            <Metric value={metrics.fechados} label="Fechados" />
+            <Metric value={metrics.conv} label="Conversão" />
+            <Metric value={metrics.tMedio} label="Tempo médio até contato" />
+          </div>
+
+          <div className="board">
+            {STATUSES.map((st) => {
+              const items = visible.filter((l) => l.status === st.key)
+              return (
+                <div className="column" key={st.key}>
+                  <h2>
+                    <span className="dot" style={{ background: st.color }} />
+                    {st.label}
+                    <span className="count">{items.length}</span>
+                  </h2>
+                  {loading && <div className="empty">Carregando…</div>}
+                  {!loading && items.length === 0 && <div className="empty">Nenhum lead aqui</div>}
+                  {items.map((l) => (
+                    <LeadCard
+                      key={l.id}
+                      lead={l}
+                      busy={busyIds.has(l.id)}
+                      onStatus={setStatus}
+                      onNumeroOk={setNumeroOk}
+                      onClienteAtendeu={setClienteAtendeu}
+                    />
+                  ))}
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+
+      {activeTab === 'relatório' && <RelatorioTab leads={leads} metrics={metrics} />}
     </div>
   )
 }

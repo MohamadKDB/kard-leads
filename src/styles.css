@@ -1,11 +1,12 @@
 :root {
-  --bg: #0d1117;
-  --panel: #151b23;
-  --panel2: #1b232e;
-  --line: #26303c;
-  --text: #e9ecf1;
-  --muted: #8b97a5;
-  --amber: #f2b441;
+  --bg: #0a1426;
+  --panel: #0f1d33;
+  --panel2: #16263f;
+  --line: #213450;
+  --text: #e9eef5;
+  --muted: #8595ad;
+  --primary: #1FDD4D;
+  --secondary: #16223F;
   --blue: #5aa7e8;
   --green: #46c98c;
   --red: #e2604f;
@@ -41,7 +42,7 @@ header {
 }
 
 .logo b {
-  color: var(--amber);
+  color: var(--primary);
 }
 
 .sub {
@@ -65,7 +66,7 @@ input[type='search'] {
 }
 
 input[type='search']:focus {
-  border-color: var(--amber);
+  border-color: var(--primary);
 }
 
 .user-chip {
@@ -83,8 +84,8 @@ input[type='search']:focus {
 }
 
 .btn-refresh {
-  background: var(--amber);
-  color: #1a1408;
+  background: var(--primary);
+  color: var(--secondary);
   border: 0;
   border-radius: 8px;
   padding: 8px 16px;
@@ -121,7 +122,7 @@ input[type='search']:focus {
 
 .metric-value {
   font: 600 22px 'JetBrains Mono', monospace;
-  color: var(--amber);
+  color: var(--primary);
 }
 
 .metric-label {
@@ -193,7 +194,7 @@ input[type='search']:focus {
 
 .card-value {
   font: 600 16px 'JetBrains Mono', monospace;
-  color: var(--amber);
+  color: var(--primary);
   margin: 3px 0;
 }
 
@@ -239,8 +240,8 @@ input[type='search']:focus {
 }
 
 .card-actions button:hover {
-  border-color: var(--amber);
-  color: var(--amber);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .card-actions button:disabled {
@@ -273,4 +274,128 @@ input[type='search']:focus {
     padding-left: 16px;
     padding-right: 16px;
   }
+}
+
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 0 28px;
+  background: var(--panel);
+}
+
+.tab {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 14px 18px;
+  font: 600 13px 'Archivo', sans-serif;
+  border-bottom: 3px solid transparent;
+  transition: all 0.2s;
+  letter-spacing: 0.5px;
+}
+
+.tab:hover {
+  color: var(--text);
+}
+
+.tab-active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+.numero-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.numero-status.ok {
+  background: rgba(70, 201, 140, 0.15);
+  color: var(--green);
+}
+
+.numero-status.invalido {
+  background: rgba(226, 96, 79, 0.15);
+  color: var(--red);
+}
+
+.numero-status.desconhecido {
+  background: rgba(139, 151, 165, 0.15);
+  color: var(--muted);
+}
+
+.atendeu-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.atendeu-check:hover {
+  background: rgba(31, 221, 77, 0.1);
+}
+
+.atendeu-check input {
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.atendeu-check label {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text);
+}
+
+.relatorio-container {
+  padding: 28px;
+}
+
+.relatorio-section {
+  margin-bottom: 32px;
+}
+
+.relatorio-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primary);
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-breakdown {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.status-item {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+}
+
+.status-item-label {
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.status-item-value {
+  font: 600 22px 'JetBrains Mono', monospace;
+  color: var(--primary);
 }
