@@ -12,20 +12,20 @@ const STATUSES = [
 
 const NEXT = {
   a_ligar: [
-    { to: 'em_contato', label: '📞 Em contato' },
-    { to: 'perdido', label: 'Perdido' },
-    { to: 'nao_atende', label: 'Não atende' },
+    { to: 'em_contato', label: '📞 Em contato', kind: 'contato' },
+    { to: 'perdido', label: '✕ Perdido', kind: 'perdido' },
+    { to: 'nao_atende', label: '⊘ Não atende', kind: 'naoatende' },
   ],
   em_contato: [
-    { to: 'fechado', label: '✅ Fechou' },
-    { to: 'perdido', label: 'Perdido' },
-    { to: 'nao_atende', label: 'Não atende' },
+    { to: 'fechado', label: '✅ Fechou', kind: 'fechou' },
+    { to: 'perdido', label: '✕ Perdido', kind: 'perdido' },
+    { to: 'nao_atende', label: '⊘ Não atende', kind: 'naoatende' },
   ],
-  fechado: [{ to: 'a_ligar', label: '↩ Reabrir' }],
-  perdido: [{ to: 'a_ligar', label: '↩ Reabrir' }],
+  fechado: [{ to: 'a_ligar', label: '↩ Reabrir', kind: 'reabrir' }],
+  perdido: [{ to: 'a_ligar', label: '↩ Reabrir', kind: 'reabrir' }],
   nao_atende: [
-    { to: 'a_ligar', label: '↩ Reabrir' },
-    { to: 'em_contato', label: '📞 Em contato' },
+    { to: 'a_ligar', label: '↩ Reabrir', kind: 'reabrir' },
+    { to: 'em_contato', label: '📞 Em contato', kind: 'contato' },
   ],
 }
 
@@ -58,15 +58,19 @@ const ago = (iso) => {
   return `há ${Math.floor(h / 24)}d`
 }
 
-const fmtDur = (ms) => {
-  const m = Math.round(ms / 60000)
-  if (m < 60) return `${m} min`
-  return `${Math.floor(m / 60)}h ${m % 60}min`
-}
-
 const isValidPhone = (p) => {
   const digits = String(p || '').replace(/\D/g, '')
   return digits.length === 11
+}
+
+const loadOperadores = () => {
+  try {
+    const raw = localStorage.getItem('kardcrm_operadores')
+    const arr = raw ? JSON.parse(raw) : []
+    return Array.isArray(arr) ? arr.filter((n) => typeof n === 'string' && n.trim()) : []
+  } catch {
+    return []
+  }
 }
 
 function Metric({ value, label }) {
@@ -85,65 +89,53 @@ function LeadCard({ lead, busy, onStatus, onNumeroOk, onClienteAtendeu }) {
 
   return (
     <div className={`card ${busy ? 'card-busy' : ''}`}>
-      <div className="card-resp" style={{ marginBottom: '6px' }}>👤 {lead.responsavel || 'Sem responsável'}</div>
+      <div className="card-resp">👤 {lead.responsavel || 'Sem responsável'}</div>
       <div className="card-name">{lead.nome || 'Sem nome'}</div>
       <div className="card-value">
         {brl(lead.valor_liberado)}
         {lead.parcelas ? <span className="card-parcelas"> em {lead.parcelas}x</span> : null}
       </div>
       <div className="card-meta">
-        CPF {cpfMask(lead.taxpayer_id)}
-        <br />
-        📞 {phoneMask(lead.phone)}
-        {numeroStatus !== 'desconhecido' && (
-          <span className={`numero-status ${numeroStatus}`}>
-            {numeroStatus === 'ok' ? '✅ OK' : '⚠️ Inválido'}
-          </span>
-        )}
-        {lead.score ? <> · score {lead.score}</> : null}
+        <div>CPF {cpfMask(lead.taxpayer_id)}</div>
+        <div>
+          📞 {phoneMask(lead.phone)}
+          {numeroStatus !== 'desconhecido' && (
+            <span className={`numero-status ${numeroStatus}`}>{numeroStatus === 'ok' ? '✅ OK' : '⚠️ Inválido'}</span>
+          )}
+        </div>
+        {lead.score ? <div>Score {lead.score}</div> : null}
       </div>
-      <div className="atendeu-check">
-        <input
-          type="checkbox"
-          id={`atendeu-${lead.id}`}
-          checked={lead.cliente_atendeu || false}
-          onChange={(e) => onClienteAtendeu(lead.id, e.target.checked)}
-          disabled={busy}
-        />
-        <label htmlFor={`atendeu-${lead.id}`}>Cliente atendeu</label>
-      </div>
-      <div style={{ marginTop: '8px' }}>
-        <label style={{ fontSize: '11px', color: 'var(--muted)' }}>
-          Número:
-          <select
-            value={lead.numero_ok || ''}
-            onChange={(e) => onNumeroOk(lead.id, e.target.value || null)}
+
+      <div className="card-controls">
+        <label className="atendeu-check">
+          <input
+            type="checkbox"
+            checked={lead.cliente_atendeu || false}
+            onChange={(e) => onClienteAtendeu(lead.id, e.target.checked)}
             disabled={busy}
-            style={{
-              marginLeft: '6px',
-              background: 'var(--panel2)',
-              border: '1px solid var(--line)',
-              color: 'var(--text)',
-              borderRadius: '4px',
-              padding: '3px 6px',
-              font: 'inherit',
-              cursor: 'pointer',
-            }}
-          >
+          />
+          <span>Cliente atendeu</span>
+        </label>
+
+        <label className="numero-select">
+          <span>Número</span>
+          <select value={lead.numero_ok || ''} onChange={(e) => onNumeroOk(lead.id, e.target.value || null)} disabled={busy}>
             <option value="">Desconhecido</option>
             <option value="ok">✅ OK</option>
             <option value="invalido">⚠️ Inválido</option>
           </select>
         </label>
       </div>
+
       <div className="card-ago">
         Entrou {ago(lead.created_at)}
         {lead.fechado_em ? <> · fechado {ago(lead.fechado_em)}</> : null}
       </div>
+
       {actions.length > 0 && (
         <div className="card-actions">
           {actions.map((a) => (
-            <button key={a.to} disabled={busy} onClick={() => onStatus(lead.id, a.to)}>
+            <button key={a.to} className={`btn-action btn-${a.kind}`} disabled={busy} onClick={() => onStatus(lead.id, a.to)}>
               {a.label}
             </button>
           ))}
@@ -174,7 +166,6 @@ function RelatorioTab({ leads, metrics }) {
           <Metric value={metrics.fila} label="Na fila" />
           <Metric value={metrics.fechados} label="Fechados" />
           <Metric value={metrics.conv} label="Conversão" />
-          <Metric value={metrics.tMedio} label="Tempo médio" />
         </div>
       </div>
 
@@ -198,11 +189,56 @@ function RelatorioTab({ leads, metrics }) {
           ))}
         </div>
       </div>
+    </div>
+  )
+}
 
-      <div className="relatorio-section">
-        <p style={{ color: 'var(--muted)', fontSize: '12px', fontStyle: 'italic' }}>
-          Dados avançados (histórico detalhado, performance por operador) virão em breve.
+function AjustesTab({ operadores, onAdd, onRemove }) {
+  const [novo, setNovo] = useState('')
+
+  const add = () => {
+    const nome = novo.trim()
+    if (!nome) return
+    onAdd(nome)
+    setNovo('')
+  }
+
+  return (
+    <div className="ajustes-container">
+      <div className="ajustes-section">
+        <h3>👥 Equipe do call center</h3>
+        <p className="ajustes-hint">
+          Cadastre os nomes dos operadores. No topo da tela, cada pessoa seleciona o próprio nome — ele fica registrado como
+          responsável nas ações.
         </p>
+
+        <div className="ajustes-add">
+          <input
+            type="text"
+            placeholder="Nome do operador"
+            value={novo}
+            onChange={(e) => setNovo(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+          />
+          <button className="btn-refresh" onClick={add}>
+            Adicionar
+          </button>
+        </div>
+
+        {operadores.length === 0 ? (
+          <div className="empty">Nenhum operador cadastrado ainda.</div>
+        ) : (
+          <ul className="operador-list">
+            {operadores.map((nome) => (
+              <li key={nome} className="operador-item">
+                <span>👤 {nome}</span>
+                <button className="operador-remove" onClick={() => onRemove(nome)} title="Remover">
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )
@@ -215,6 +251,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [busyIds, setBusyIds] = useState(new Set())
   const [user, setUser] = useState(() => localStorage.getItem('kardcrm_user') || '')
+  const [operadores, setOperadores] = useState(loadOperadores)
   const [activeTab, setActiveTab] = useState('operacional')
 
   const load = useCallback(async () => {
@@ -237,20 +274,41 @@ export default function App() {
     return () => clearInterval(t)
   }, [load])
 
-  const askUser = (force = false) => {
-    let u = user
-    if (!u || force) {
-      u = window.prompt('Seu nome (fica registrado como responsável):', u || '') || u || ''
-      if (u) {
-        localStorage.setItem('kardcrm_user', u)
-        setUser(u)
-      }
+  const selecionarUser = (nome) => {
+    setUser(nome)
+    if (nome) localStorage.setItem('kardcrm_user', nome)
+    else localStorage.removeItem('kardcrm_user')
+  }
+
+  const addOperador = (nome) => {
+    setOperadores((prev) => {
+      if (prev.some((n) => n.toLowerCase() === nome.toLowerCase())) return prev
+      const next = [...prev, nome].sort((a, b) => a.localeCompare(b, 'pt-BR'))
+      localStorage.setItem('kardcrm_operadores', JSON.stringify(next))
+      return next
+    })
+  }
+
+  const removeOperador = (nome) => {
+    setOperadores((prev) => {
+      const next = prev.filter((n) => n !== nome)
+      localStorage.setItem('kardcrm_operadores', JSON.stringify(next))
+      return next
+    })
+    if (user === nome) selecionarUser('')
+  }
+
+  const requireUser = () => {
+    if (!user) {
+      setError('Selecione seu nome no topo da tela antes de registrar ações. Cadastre operadores na aba Ajustes.')
+      return null
     }
-    return u
+    return user
   }
 
   const setStatus = async (id, status) => {
-    const responsavel = askUser(false)
+    const responsavel = requireUser()
+    if (!responsavel) return
     setBusyIds((s) => new Set(s).add(id))
     try {
       const lead = leads.find((l) => l.id === id)
@@ -294,15 +352,10 @@ export default function App() {
   const setNumeroOk = async (id, value) => {
     setBusyIds((s) => new Set(s).add(id))
     try {
-      const lead = leads.find((l) => l.id === id)
       const r = await fetch(`${API_BASE}/kard-crm-numero-ok`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id,
-          numero_ok: value,
-          responsavel: user || 'indefinido',
-        }),
+        body: JSON.stringify({ id, numero_ok: value, responsavel: user || 'indefinido' }),
       })
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       setLeads((ls) => ls.map((l) => (l.id === id ? { ...l, numero_ok: value } : l)))
@@ -324,11 +377,7 @@ export default function App() {
       const r = await fetch(`${API_BASE}/kard-crm-cliente-atendeu`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id,
-          cliente_atendeu: value,
-          responsavel: user || 'indefinido',
-        }),
+        body: JSON.stringify({ id, cliente_atendeu: value, responsavel: user || 'indefinido' }),
       })
       if (!r.ok) throw new Error(`HTTP ${r.status}`)
       setLeads((ls) => ls.map((l) => (l.id === id ? { ...l, cliente_atendeu: value } : l)))
@@ -362,12 +411,8 @@ export default function App() {
     const startOfDay = new Date()
     startOfDay.setHours(0, 0, 0, 0)
     const hoje = leads.filter((l) => l.created_at && new Date(l.created_at) >= startOfDay).length
-    const contatos = leads.filter((l) => l.em_contato_em && l.created_at)
-    const tMedio = contatos.length
-      ? fmtDur(contatos.reduce((acc, l) => acc + (new Date(l.em_contato_em) - new Date(l.created_at)), 0) / contatos.length)
-      : '—'
     const conv = total ? `${Math.round((fechados * 100) / total)}%` : '—'
-    return { total, hoje, fila, fechados, conv, tMedio }
+    return { total, hoje, fila, fechados, conv }
   }, [leads])
 
   return (
@@ -386,9 +431,17 @@ export default function App() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        <button className="user-chip" onClick={() => askUser(true)} title="Clique para trocar o nome">
-          👤 <b>{user || 'definir nome'}</b>
-        </button>
+        <label className="operador-picker" title="Selecione seu nome">
+          <span>👤</span>
+          <select value={user} onChange={(e) => selecionarUser(e.target.value)}>
+            <option value="">Selecione seu nome…</option>
+            {operadores.map((nome) => (
+              <option key={nome} value={nome}>
+                {nome}
+              </option>
+            ))}
+          </select>
+        </label>
         <button className="btn-refresh" onClick={load}>
           Atualizar
         </button>
@@ -397,17 +450,14 @@ export default function App() {
       {error && <div className="error-banner">{error}</div>}
 
       <nav className="tabs">
-        <button
-          className={`tab ${activeTab === 'operacional' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('operacional')}
-        >
+        <button className={`tab ${activeTab === 'operacional' ? 'tab-active' : ''}`} onClick={() => setActiveTab('operacional')}>
           📊 Operacional
         </button>
-        <button
-          className={`tab ${activeTab === 'relatório' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('relatório')}
-        >
+        <button className={`tab ${activeTab === 'relatório' ? 'tab-active' : ''}`} onClick={() => setActiveTab('relatório')}>
           📈 Relatório
+        </button>
+        <button className={`tab ${activeTab === 'ajustes' ? 'tab-active' : ''}`} onClick={() => setActiveTab('ajustes')}>
+          ⚙️ Ajustes
         </button>
       </nav>
 
@@ -419,7 +469,6 @@ export default function App() {
             <Metric value={metrics.fila} label="Na fila (a ligar)" />
             <Metric value={metrics.fechados} label="Fechados" />
             <Metric value={metrics.conv} label="Conversão" />
-            <Metric value={metrics.tMedio} label="Tempo médio até contato" />
           </div>
 
           <div className="board">
@@ -452,6 +501,8 @@ export default function App() {
       )}
 
       {activeTab === 'relatório' && <RelatorioTab leads={leads} metrics={metrics} />}
+
+      {activeTab === 'ajustes' && <AjustesTab operadores={operadores} onAdd={addOperador} onRemove={removeOperador} />}
     </div>
   )
 }
