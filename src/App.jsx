@@ -298,6 +298,9 @@ function Board({ columns, visible, loading, busyIds, onStatus, onNumeroOk, onCli
       {columns.map((key) => {
         const st = STATUS_MAP[key]
         const items = visible.filter((l) => l.status === key)
+        if (key === 'em_contato') {
+          items.sort((a, b) => new Date(a.em_contato_em || 0) - new Date(b.em_contato_em || 0))
+        }
         return (
           <div className="column" key={key}>
             <h2>
