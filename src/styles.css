@@ -840,6 +840,11 @@ input[type='search']:focus {
   border-color: var(--primary);
 }
 
+.toolbar-acoes {
+  display: flex;
+  gap: 8px;
+}
+
 .btn-pdf {
   background: var(--primary);
   border: none;
@@ -853,6 +858,31 @@ input[type='search']:focus {
 
 .btn-pdf:hover {
   filter: brightness(1.08);
+}
+
+.btn-excel {
+  background: transparent;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  border-radius: 8px;
+  padding: 9px 18px;
+  font: 700 13px 'Archivo', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-excel:hover {
+  background: rgba(31, 221, 77, 0.12);
+}
+
+.btn-mini-danger {
+  border-color: rgba(226, 96, 79, 0.5);
+  color: var(--red);
+}
+
+.btn-mini-danger:hover {
+  border-color: var(--red);
+  background: rgba(226, 96, 79, 0.1);
 }
 
 .periodo-tag {

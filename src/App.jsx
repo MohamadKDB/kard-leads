@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import * as XLSX from 'xlsx'
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'https://staging-n8n-editor.easypanel.spyralinnovation.com.br/webhook'
 
@@ -441,6 +442,29 @@ function FunnelRow({ label, value, total, color }) {
   )
 }
 
+function exportarExcel(leads) {
+  const rows = leads.map((l) => ({
+    Nome: l.nome || '',
+    CPF: cpfMask(l.taxpayer_id),
+    Telefone: phoneMask(l.phone),
+    'Valor liberado': Number(l.valor_liberado) || 0,
+    Parcelas: l.parcelas || '',
+    Score: l.score || '',
+    Status: STATUS_MAP[l.status]?.label || l.status,
+    Responsável: l.responsavel || '',
+    'Cliente atendeu': l.cliente_atendeu ? 'Sim' : 'Não',
+    Número: l.numero_ok === 'ok' ? 'OK' : l.numero_ok === 'invalido' ? 'Inválido' : '',
+    'Entrou em': l.created_at ? new Date(l.created_at).toLocaleString('pt-BR') : '',
+    'Em contato em': l.em_contato_em ? new Date(l.em_contato_em).toLocaleString('pt-BR') : '',
+    'Fechado em': l.fechado_em ? new Date(l.fechado_em).toLocaleString('pt-BR') : '',
+  }))
+  const ws = XLSX.utils.json_to_sheet(rows)
+  ws['!cols'] = [28, 16, 16, 14, 9, 7, 14, 16, 14, 10, 18, 18, 18].map((wch) => ({ wch }))
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Leads')
+  XLSX.writeFile(wb, `kardleads-${new Date().toISOString().slice(0, 10)}.xlsx`)
+}
+
 function RelatorioTab({ leads }) {
   const [preset, setPreset] = useState('tudo')
   const [custom, setCustom] = useState({ from: '', to: '' })
@@ -523,9 +547,14 @@ function RelatorioTab({ leads }) {
             onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))}
           />
         </div>
-        <button className="btn-pdf" onClick={gerarPDF}>
-          🖨️ Gerar PDF
-        </button>
+        <div className="toolbar-acoes">
+          <button className="btn-excel" onClick={() => exportarExcel(filtered)}>
+            📥 Exportar Excel
+          </button>
+          <button className="btn-pdf" onClick={gerarPDF}>
+            🖨️ Gerar PDF
+          </button>
+        </div>
       </div>
 
       <div className="periodo-tag">📅 {periodoLabel} · {r.total} leads</div>
@@ -657,7 +686,7 @@ function RelatorioTab({ leads }) {
   )
 }
 
-function UsuariosTab({ token, onError }) {
+function UsuariosTab({ token, onError, currentNome }) {
   const [usuarios, setUsuarios] = useState([])
   const [loading, setLoading] = useState(true)
   const [nome, setNome] = useState('')
@@ -714,6 +743,25 @@ function UsuariosTab({ token, onError }) {
       carregar()
     } catch (e) {
       onError(`Erro ao atualizar usuário (${e.message})`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const excluir = async (u) => {
+    if (!window.confirm(`Excluir o usuário "${u.nome}"? Esta ação não pode ser desfeita.`)) return
+    setBusy(true)
+    try {
+      const data = await api('kard-crm-users-delete', { method: 'POST', token, body: { id: u.id } })
+      const row = Array.isArray(data) ? data[0] : data
+      if (row && row.id) {
+        onError('')
+        carregar()
+      } else {
+        onError('Não foi possível excluir esse usuário.')
+      }
+    } catch (e) {
+      onError(`Erro ao excluir usuário (${e.message})`)
     } finally {
       setBusy(false)
     }
@@ -779,6 +827,11 @@ function UsuariosTab({ token, onError }) {
                   <button className="btn-mini" onClick={() => toggle(u)} disabled={busy}>
                     {u.ativo ? 'Desativar' : 'Reativar'}
                   </button>
+                  {u.nome !== currentNome && (
+                    <button className="btn-mini btn-mini-danger" onClick={() => excluir(u)} disabled={busy}>
+                      Excluir
+                    </button>
+                  )}
                 </span>
               </li>
             ))}
@@ -1029,7 +1082,9 @@ export default function App() {
 
       {activeTab === 'relatório' && isMaster && <RelatorioTab leads={leads} />}
 
-      {activeTab === 'usuarios' && isMaster && <UsuariosTab token={session.token} onError={setError} />}
+      {activeTab === 'usuarios' && isMaster && (
+        <UsuariosTab token={session.token} onError={setError} currentNome={session.nome} />
+      )}
     </div>
   )
 }
