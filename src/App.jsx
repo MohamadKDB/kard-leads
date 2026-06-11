@@ -6,6 +6,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'https://staging-n8n-editor.ea
 const STATUSES = [
   { key: 'a_ligar', label: 'A ligar', color: 'var(--primary)' },
   { key: 'em_contato', label: 'Em contato', color: 'var(--blue)' },
+  { key: 'link_enviado', label: 'Link enviado', color: '#9b8cff' },
   { key: 'fechado', label: 'Fechado', color: 'var(--green)' },
   { key: 'perdido', label: 'Perdido', color: 'var(--red)' },
   { key: 'nao_atende', label: 'Não atende', color: 'var(--gray)' },
@@ -14,7 +15,7 @@ const STATUSES = [
 
 const STATUS_MAP = Object.fromEntries(STATUSES.map((s) => [s.key, s]))
 
-const OPERACIONAL_COLS = ['a_ligar', 'em_contato']
+const OPERACIONAL_COLS = ['a_ligar', 'em_contato', 'link_enviado']
 const FECHADOS_COLS = ['fechado', 'perdido', 'nao_atende', 'numero_invalido']
 
 const NEXT = {
@@ -25,10 +26,14 @@ const NEXT = {
     { to: 'numero_invalido', label: '⚠ Nº inválido', kind: 'numinvalido' },
   ],
   em_contato: [
-    { to: 'fechado', label: '✅ Fechou', kind: 'fechou' },
+    { to: 'link_enviado', label: '🔗 Enviar link', kind: 'fechou' },
     { to: 'perdido', label: '✕ Perdido', kind: 'perdido' },
     { to: 'nao_atende', label: '⊘ Não atende', kind: 'naoatende' },
     { to: 'numero_invalido', label: '⚠ Nº inválido', kind: 'numinvalido' },
+  ],
+  link_enviado: [
+    { to: 'em_contato', label: '↩ Voltar p/ contato', kind: 'reabrir' },
+    { to: 'perdido', label: '✕ Perdido', kind: 'perdido' },
   ],
   fechado: [{ to: 'a_ligar', label: '↩ Reabrir', kind: 'reabrir' }],
   perdido: [{ to: 'a_ligar', label: '↩ Reabrir', kind: 'reabrir' }],
@@ -370,14 +375,18 @@ function computeReport(leads) {
   const total = leads.length
   const fila = leads.filter((l) => l.status === 'a_ligar')
   const emContato = leads.filter((l) => l.status === 'em_contato')
+  const linkEnviado = leads.filter((l) => l.status === 'link_enviado')
   const fechados = leads.filter((l) => l.status === 'fechado')
   const perdidos = leads.filter((l) => l.status === 'perdido')
   const naoAtende = leads.filter((l) => l.status === 'nao_atende')
   const trabalhados = total - fila.length
-  const atendidos = leads.filter((l) => l.cliente_atendeu || l.status === 'em_contato' || l.status === 'fechado')
+  const ATENDEU = (l) =>
+    l.cliente_atendeu || l.status === 'em_contato' || l.status === 'link_enviado' || l.status === 'fechado'
+  const atendidos = leads.filter(ATENDEU)
 
   const valorFechado = sum(fechados, 'valor_liberado')
-  const valorPipeline = sum([...fila, ...emContato], 'valor_liberado')
+  const valorLinkEnviado = sum(linkEnviado, 'valor_liberado')
+  const valorPipeline = sum([...fila, ...emContato, ...linkEnviado], 'valor_liberado')
   const valorPerdido = sum(perdidos, 'valor_liberado')
   const ticketMedio = fechados.length ? valorFechado / fechados.length : 0
 
@@ -396,15 +405,16 @@ function computeReport(leads) {
   for (const l of leads) {
     const r = l.responsavel
     if (!r) continue
-    ops[r] = ops[r] || { nome: r, assumidos: 0, atendidos: 0, fechados: 0, valor: 0 }
+    ops[r] = ops[r] || { nome: r, assumidos: 0, atendidos: 0, links: 0, fechados: 0, valor: 0 }
     ops[r].assumidos++
-    if (l.cliente_atendeu || l.status === 'em_contato' || l.status === 'fechado') ops[r].atendidos++
+    if (ATENDEU(l)) ops[r].atendidos++
+    if (l.status === 'link_enviado') ops[r].links++
     if (l.status === 'fechado') {
       ops[r].fechados++
       ops[r].valor += Number(l.valor_liberado) || 0
     }
   }
-  const operadores = Object.values(ops).sort((a, b) => b.valor - a.valor || b.fechados - a.fechados)
+  const operadores = Object.values(ops).sort((a, b) => b.valor - a.valor || b.fechados - a.fechados || b.links - a.links)
 
   return {
     total,
@@ -412,11 +422,13 @@ function computeReport(leads) {
     atendidos: atendidos.length,
     fila: fila.length,
     emContato: emContato.length,
+    linkEnviado: linkEnviado.length,
     fechados: fechados.length,
     perdidos: perdidos.length,
     naoAtende: naoAtende.length,
     numerosInvalidos: leads.filter((l) => l.numero_ok === 'invalido').length,
     valorFechado,
+    valorLinkEnviado,
     valorPipeline,
     valorPerdido,
     ticketMedio,
@@ -588,6 +600,11 @@ function RelatorioTab({ leads, scopeNome }) {
             <div className="kpi-label">Conversão geral</div>
           </div>
           <div className="kpi">
+            <div className="kpi-value">{r.linkEnviado}</div>
+            <div className="kpi-label">Links enviados</div>
+            <div className="kpi-hint">{brl(r.valorLinkEnviado)} em aberto</div>
+          </div>
+          <div className="kpi">
             <div className="kpi-value">{brl(r.valorPerdido)}</div>
             <div className="kpi-label">Valor perdido</div>
           </div>
@@ -600,6 +617,7 @@ function RelatorioTab({ leads, scopeNome }) {
           <FunnelRow label="Leads recebidos" value={r.total} total={r.total} color="var(--primary)" />
           <FunnelRow label="Trabalhados" value={r.trabalhados} total={r.total} color="var(--blue)" />
           <FunnelRow label="Atenderam" value={r.atendidos} total={r.total} color="#7c6fe0" />
+          <FunnelRow label="Link enviado" value={r.linkEnviado} total={r.total} color="#9b8cff" />
           <FunnelRow label="Fechados" value={r.fechados} total={r.total} color="var(--green)" />
         </div>
       </div>
@@ -659,6 +677,7 @@ function RelatorioTab({ leads, scopeNome }) {
                 <th>Operador</th>
                 <th>Assumidos</th>
                 <th>Atenderam</th>
+                <th>Links</th>
                 <th>Fechados</th>
                 <th>Conversão</th>
                 <th>Valor fechado</th>
@@ -670,6 +689,7 @@ function RelatorioTab({ leads, scopeNome }) {
                   <td>{o.nome}</td>
                   <td>{o.assumidos}</td>
                   <td>{o.atendidos}</td>
+                  <td>{o.links}</td>
                   <td>{o.fechados}</td>
                   <td>{pctStr(o.fechados, o.assumidos)}</td>
                   <td>{brl(o.valor)}</td>
@@ -999,12 +1019,13 @@ export default function App() {
   const metrics = useMemo(() => {
     const total = leads.length
     const fechados = leads.filter((l) => l.status === 'fechado').length
+    const linkEnviado = leads.filter((l) => l.status === 'link_enviado').length
     const fila = leads.filter((l) => l.status === 'a_ligar').length
     const startOfDay = new Date()
     startOfDay.setHours(0, 0, 0, 0)
     const hoje = leads.filter((l) => l.created_at && new Date(l.created_at) >= startOfDay).length
     const conv = total ? `${Math.round((fechados * 100) / total)}%` : '—'
-    return { total, hoje, fila, fechados, conv }
+    return { total, hoje, fila, linkEnviado, fechados, conv }
   }, [leads])
 
   if (!session) return <Login onLogin={onLogin} />
@@ -1081,6 +1102,7 @@ export default function App() {
             <Metric value={metrics.total} label={isMaster ? 'Leads totais' : 'Meus leads'} />
             <Metric value={metrics.hoje} label="Entraram hoje" />
             <Metric value={metrics.fila} label="Na fila (a ligar)" />
+            <Metric value={metrics.linkEnviado} label="Link enviado" />
             <Metric value={metrics.fechados} label="Fechados" />
             <Metric value={metrics.conv} label="Conversão" />
           </div>

@@ -366,6 +366,10 @@ input[type='search']:focus {
   grid-template-columns: repeat(2, 1fr);
 }
 
+.board.cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 .board.cols-4 {
   grid-template-columns: repeat(4, 1fr);
 }
@@ -545,6 +549,7 @@ input[type='search']:focus {
 
 @media (max-width: 1100px) {
   .board,
+  .board.cols-3,
   .board.cols-4 {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -553,6 +558,7 @@ input[type='search']:focus {
 @media (max-width: 640px) {
   .board,
   .board.cols-2,
+  .board.cols-3,
   .board.cols-4 {
     grid-template-columns: 1fr;
   }
