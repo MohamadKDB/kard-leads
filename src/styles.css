@@ -55,6 +55,158 @@ header {
   flex: 1;
 }
 
+.login-wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 340px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-logo {
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: 0.4px;
+  text-align: center;
+}
+
+.login-logo b {
+  color: var(--primary);
+}
+
+.login-sub {
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.login-card input {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 11px 13px;
+  font: inherit;
+  outline: none;
+}
+
+.login-card input:focus {
+  border-color: var(--primary);
+}
+
+.login-card .btn-refresh {
+  margin-top: 4px;
+  padding: 11px;
+}
+
+.login-erro {
+  color: var(--red);
+  font-size: 13px;
+}
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn-logout {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font: 600 13px 'Archivo', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-logout:hover {
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.papel-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  margin-left: 6px;
+}
+
+.papel-badge.master {
+  background: rgba(31, 221, 77, 0.15);
+  color: var(--primary);
+}
+
+.papel-badge.operador {
+  background: rgba(90, 167, 232, 0.15);
+  color: var(--blue);
+}
+
+.papel-badge.inativo {
+  background: rgba(226, 96, 79, 0.15);
+  color: var(--red);
+}
+
+.papel-select {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font: inherit;
+  cursor: pointer;
+  outline: none;
+}
+
+.usuario-acoes {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.btn-mini {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font: 600 12px 'Archivo', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-mini:hover {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+
+.btn-mini:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 input[type='search'] {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -563,4 +715,68 @@ input[type='search']:focus {
 .operador-remove:hover {
   border-color: var(--red);
   color: var(--red);
+}
+
+.btn-senha {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font: 600 13px 'Archivo', sans-serif;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-senha:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 26px;
+  width: min(360px, 90vw);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.modal-card h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.modal-card input {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 11px 13px;
+  color: var(--text);
+  font: 400 14px 'Archivo', sans-serif;
+}
+
+.modal-card input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.modal-acoes {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
 }
