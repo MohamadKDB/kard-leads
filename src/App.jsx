@@ -235,10 +235,24 @@ function Metric({ value, label }) {
   )
 }
 
-function LeadCard({ lead, busy, onStatus, onNumeroOk, onClienteAtendeu }) {
+const CANAIS = [
+  { key: 'canal_telefone', label: '📞 Telefone' },
+  { key: 'canal_rcs', label: '💬 RCS' },
+  { key: 'canal_whatsapp', label: '🟢 WhatsApp' },
+]
+
+function LeadCard({ lead, busy, onStatus, onNumeroOk, onClienteAtendeu, onCanal }) {
   const actions = NEXT[lead.status] || []
   const phoneValid = isValidPhone(lead.phone)
   const numeroStatus = lead.numero_ok || (phoneValid ? 'desconhecido' : 'invalido')
+
+  const toggleCanal = (key) =>
+    onCanal(lead.id, {
+      canal_telefone: !!lead.canal_telefone,
+      canal_rcs: !!lead.canal_rcs,
+      canal_whatsapp: !!lead.canal_whatsapp,
+      [key]: !lead[key],
+    })
 
   return (
     <div className={`card ${busy ? 'card-busy' : ''}`}>
@@ -278,6 +292,23 @@ function LeadCard({ lead, busy, onStatus, onNumeroOk, onClienteAtendeu }) {
             <option value="invalido">⚠️ Inválido</option>
           </select>
         </label>
+
+        <div className="canais-row">
+          <span className="canais-label">Canais</span>
+          <div className="canais-chips">
+            {CANAIS.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                className={`canal-chip ${lead[c.key] ? 'on' : ''}`}
+                onClick={() => toggleCanal(c.key)}
+                disabled={busy}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="card-ago">
@@ -298,7 +329,7 @@ function LeadCard({ lead, busy, onStatus, onNumeroOk, onClienteAtendeu }) {
   )
 }
 
-function Board({ columns, visible, loading, busyIds, onStatus, onNumeroOk, onClienteAtendeu }) {
+function Board({ columns, visible, loading, busyIds, onStatus, onNumeroOk, onClienteAtendeu, onCanal }) {
   return (
     <div className={`board cols-${columns.length}`}>
       {columns.map((key) => {
@@ -324,6 +355,7 @@ function Board({ columns, visible, loading, busyIds, onStatus, onNumeroOk, onCli
                 onStatus={onStatus}
                 onNumeroOk={onNumeroOk}
                 onClienteAtendeu={onClienteAtendeu}
+                onCanal={onCanal}
               />
             ))}
           </div>
@@ -416,6 +448,27 @@ function computeReport(leads) {
   }
   const operadores = Object.values(ops).sort((a, b) => b.valor - a.valor || b.fechados - a.fechados || b.links - a.links)
 
+  const canalDefs = [
+    { key: 'canal_telefone', label: '📞 Telefone' },
+    { key: 'canal_rcs', label: '💬 RCS' },
+    { key: 'canal_whatsapp', label: '🟢 WhatsApp' },
+  ]
+  const canais = canalDefs.map((c) => {
+    const used = leads.filter((l) => l[c.key])
+    const fch = used.filter((l) => l.status === 'fechado')
+    return {
+      label: c.label,
+      usados: used.length,
+      atendidos: used.filter(ATENDEU).length,
+      links: used.filter((l) => l.status === 'link_enviado').length,
+      fechados: fch.length,
+      valor: sum(fch, 'valor_liberado'),
+    }
+  })
+  const semCanal = leads.filter(
+    (l) => l.status !== 'a_ligar' && !l.canal_telefone && !l.canal_rcs && !l.canal_whatsapp
+  ).length
+
   return {
     total,
     trabalhados,
@@ -440,6 +493,8 @@ function computeReport(leads) {
     tFecho,
     parados,
     operadores,
+    canais,
+    semCanal,
   }
 }
 
@@ -470,12 +525,15 @@ function exportarExcel(leads) {
     Responsável: l.responsavel || '',
     'Cliente atendeu': l.cliente_atendeu ? 'Sim' : 'Não',
     Número: l.numero_ok === 'ok' ? 'OK' : l.numero_ok === 'invalido' ? 'Inválido' : '',
+    Canais: [l.canal_telefone && 'Telefone', l.canal_rcs && 'RCS', l.canal_whatsapp && 'WhatsApp']
+      .filter(Boolean)
+      .join(', '),
     'Entrou em': l.created_at ? new Date(l.created_at).toLocaleString('pt-BR') : '',
     'Em contato em': l.em_contato_em ? new Date(l.em_contato_em).toLocaleString('pt-BR') : '',
     'Fechado em': l.fechado_em ? new Date(l.fechado_em).toLocaleString('pt-BR') : '',
   }))
   const ws = XLSX.utils.json_to_sheet(rows)
-  ws['!cols'] = [28, 16, 16, 14, 9, 7, 14, 16, 14, 10, 18, 18, 18].map((wch) => ({ wch }))
+  ws['!cols'] = [28, 16, 16, 14, 9, 7, 14, 16, 14, 10, 22, 18, 18, 18].map((wch) => ({ wch }))
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Leads')
   XLSX.writeFile(wb, `kardleads-${new Date().toISOString().slice(0, 10)}.xlsx`)
@@ -700,6 +758,39 @@ function RelatorioTab({ leads, scopeNome }) {
         )}
       </div>
       )}
+
+      <div className="relatorio-section">
+        <h3>📡 Canais de Contato</h3>
+        <table className="rank-table">
+          <thead>
+            <tr>
+              <th>Canal</th>
+              <th>Usado em</th>
+              <th>Atenderam</th>
+              <th>Link enviado</th>
+              <th>Fechados</th>
+              <th>Conversão</th>
+              <th>Valor fechado</th>
+            </tr>
+          </thead>
+          <tbody>
+            {r.canais.map((c) => (
+              <tr key={c.label}>
+                <td>{c.label}</td>
+                <td>{c.usados}</td>
+                <td>{c.atendidos}</td>
+                <td>{c.links}</td>
+                <td>{c.fechados}</td>
+                <td>{pctStr(c.fechados, c.usados)}</td>
+                <td>{brl(c.valor)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="kpi-hint" style={{ marginTop: 10 }}>
+          Um lead pode usar mais de um canal, então a soma pode passar do total. {r.semCanal} lead(s) trabalhado(s) sem canal marcado.
+        </div>
+      </div>
 
       <div className="relatorio-section">
         <h3>📊 Distribuição por Status</h3>
@@ -987,6 +1078,24 @@ export default function App() {
     }
   }
 
+  const setCanal = async (id, canais) => {
+    setBusyIds((s) => new Set(s).add(id))
+    try {
+      await api('kard-crm-canais', { method: 'POST', token: session.token, body: { id, ...canais } })
+      setLeads((ls) => ls.map((l) => (l.id === id ? { ...l, ...canais } : l)))
+      setError('')
+      load()
+    } catch (e) {
+      setError(`Erro ao atualizar canais (${e.message})`)
+    } finally {
+      setBusyIds((s) => {
+        const n = new Set(s)
+        n.delete(id)
+        return n
+      })
+    }
+  }
+
   const setClienteAtendeu = async (id, value) => {
     setBusyIds((s) => new Set(s).add(id))
     try {
@@ -1115,6 +1224,7 @@ export default function App() {
             onStatus={setStatus}
             onNumeroOk={setNumeroOk}
             onClienteAtendeu={setClienteAtendeu}
+            onCanal={setCanal}
           />
         </>
       )}
@@ -1128,6 +1238,7 @@ export default function App() {
           onStatus={setStatus}
           onNumeroOk={setNumeroOk}
           onClienteAtendeu={setClienteAtendeu}
+          onCanal={setCanal}
         />
       )}
 
