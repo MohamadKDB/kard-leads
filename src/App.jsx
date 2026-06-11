@@ -7,7 +7,7 @@ const STATUSES = [
   { key: 'a_ligar', label: 'A ligar', color: 'var(--primary)' },
   { key: 'em_contato', label: 'Em contato', color: 'var(--blue)' },
   { key: 'link_enviado', label: 'Link enviado', color: '#9b8cff' },
-  { key: 'fechado', label: 'Fechado', color: 'var(--green)' },
+  { key: 'fechado', label: 'Pago', color: 'var(--green)' },
   { key: 'perdido', label: 'Perdido', color: 'var(--red)' },
   { key: 'nao_atende', label: 'Não atende', color: 'var(--gray)' },
   { key: 'numero_invalido', label: 'Número inválido', color: '#e0a458' },
@@ -16,7 +16,7 @@ const STATUSES = [
 const STATUS_MAP = Object.fromEntries(STATUSES.map((s) => [s.key, s]))
 
 const OPERACIONAL_COLS = ['a_ligar', 'em_contato']
-const FECHADOS_COLS = ['link_enviado', 'perdido', 'nao_atende', 'numero_invalido']
+const FECHADOS_COLS = ['link_enviado', 'fechado', 'perdido', 'nao_atende', 'numero_invalido']
 
 const NEXT = {
   a_ligar: [
@@ -1212,7 +1212,7 @@ export default function App() {
             <Metric value={metrics.hoje} label="Entraram hoje" />
             <Metric value={metrics.fila} label="Na fila (a ligar)" />
             <Metric value={metrics.linkEnviado} label="Link enviado" />
-            <Metric value={metrics.fechados} label="Fechados" />
+            <Metric value={metrics.fechados} label="Pagos" />
             <Metric value={metrics.conv} label="Conversão" />
           </div>
 
