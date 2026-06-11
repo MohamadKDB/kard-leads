@@ -12,6 +12,64 @@
   --green: #46c98c;
   --red: #e2604f;
   --gray: #7d8794;
+  color-scheme: dark;
+}
+
+/* ===== Modo claro ===== */
+[data-theme='light'] {
+  --bg: #eef2f8;
+  --panel: #ffffff;
+  --panel2: #f5f8fc;
+  --line: #dde4ee;
+  --line-strong: #c0cadb;
+  --text: #16223f;
+  --muted: #5d6b85;
+  --primary: #14c43f;
+  --secondary: #ffffff;
+  --blue: #2f7fd0;
+  --green: #16a86a;
+  --red: #d24b3a;
+  --gray: #8b95a4;
+  color-scheme: light;
+}
+
+/* contraste do verde sobre fundo claro */
+[data-theme='light'] .metric-value,
+[data-theme='light'] .kpi-value,
+[data-theme='light'] .status-item-value,
+[data-theme='light'] .card-value,
+[data-theme='light'] .logo b,
+[data-theme='light'] .login-logo b,
+[data-theme='light'] .relatorio-section h3,
+[data-theme='light'] .ajustes-section h3,
+[data-theme='light'] .tab-active,
+[data-theme='light'] .rank-table tbody tr:first-child td {
+  color: #0f9c33;
+}
+
+[data-theme='light'] .papel-badge.master {
+  background: rgba(20, 196, 63, 0.16);
+  color: #0f9c33;
+}
+
+[data-theme='light'] .date-filter input[type='date'] {
+  color-scheme: light;
+}
+
+[data-theme='light'] body {
+  background: var(--bg);
+}
+
+[data-theme='light'] .modal-card {
+  box-shadow: 0 12px 40px rgba(22, 34, 63, 0.18);
+}
+
+[data-theme='light'] .modal-overlay {
+  background: rgba(22, 34, 63, 0.35);
+}
+
+body {
+  transition: background 0.2s, color 0.2s;
 }
 
 * {
@@ -731,6 +789,21 @@ input[type='search']:focus {
 .btn-senha:hover {
   border-color: var(--primary);
   color: var(--primary);
+}
+
+.btn-tema {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 11px;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-tema:hover {
+  border-color: var(--line-strong);
 }
 
 .modal-overlay {

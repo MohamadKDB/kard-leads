@@ -41,6 +41,7 @@ const NEXT = {
 
 const TOKEN_KEY = 'kardcrm_token'
 const SESSION_KEY = 'kardcrm_sessao'
+const TEMA_KEY = 'kardleads_tema'
 
 const loadSession = () => {
   try {
@@ -468,9 +469,14 @@ function exportarExcel(leads) {
   XLSX.writeFile(wb, `kardleads-${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
-function RelatorioTab({ leads }) {
+function RelatorioTab({ leads, scopeNome }) {
   const [preset, setPreset] = useState('tudo')
   const [custom, setCustom] = useState({ from: '', to: '' })
+
+  const scoped = useMemo(
+    () => (scopeNome ? leads.filter((l) => l.responsavel === scopeNome) : leads),
+    [leads, scopeNome]
+  )
 
   const range = useMemo(() => {
     if (custom.from || custom.to) {
@@ -490,15 +496,15 @@ function RelatorioTab({ leads }) {
   }, [range])
 
   const filtered = useMemo(() => {
-    if (range.from == null && range.to == null) return leads
-    return leads.filter((l) => {
+    if (range.from == null && range.to == null) return scoped
+    return scoped.filter((l) => {
       if (!l.created_at) return false
       const t = new Date(l.created_at).getTime()
       if (range.from != null && t < range.from) return false
       if (range.to != null && t > range.to) return false
       return true
     })
-  }, [leads, range])
+  }, [scoped, range])
 
   const r = useMemo(() => computeReport(filtered), [filtered])
 
@@ -516,7 +522,7 @@ function RelatorioTab({ leads }) {
           KARD<b>LEADS</b>
         </div>
         <div className="print-title">
-          <div>Relatório de Performance Comercial</div>
+          <div>{scopeNome ? `Meu Desempenho · ${scopeNome}` : 'Relatório de Performance Comercial'}</div>
           <div className="print-meta">
             Período: {periodoLabel} · Gerado em {new Date().toLocaleString('pt-BR')}
           </div>
@@ -641,6 +647,7 @@ function RelatorioTab({ leads }) {
         </div>
       </div>
 
+      {!scopeNome && (
       <div className="relatorio-section">
         <h3>🏆 Desempenho por Operador</h3>
         {r.operadores.length === 0 ? (
@@ -672,6 +679,7 @@ function RelatorioTab({ leads }) {
           </table>
         )}
       </div>
+      )}
 
       <div className="relatorio-section">
         <h3>📊 Distribuição por Status</h3>
@@ -854,8 +862,14 @@ export default function App() {
   const [busyIds, setBusyIds] = useState(new Set())
   const [activeTab, setActiveTab] = useState('operacional')
   const [trocarSenha, setTrocarSenha] = useState(false)
+  const [tema, setTema] = useState(() => localStorage.getItem(TEMA_KEY) || 'dark')
 
   const isMaster = session?.papel === 'master'
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', tema)
+    localStorage.setItem(TEMA_KEY, tema)
+  }, [tema])
 
   const logout = useCallback(() => {
     clearSession()
@@ -1015,6 +1029,13 @@ export default function App() {
           <span>👤 {session.nome}</span>
           <span className={`papel-badge ${session.papel}`}>{isMaster ? 'Master' : 'Operador'}</span>
         </div>
+        <button
+          className="btn-tema"
+          onClick={() => setTema((t) => (t === 'dark' ? 'light' : 'dark'))}
+          title={tema === 'dark' ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
+        >
+          {tema === 'dark' ? '☀️' : '🌙'}
+        </button>
         <button className="btn-refresh" onClick={load}>
           Atualizar
         </button>
@@ -1037,6 +1058,11 @@ export default function App() {
         <button className={`tab ${activeTab === 'fechados' ? 'tab-active' : ''}`} onClick={() => setActiveTab('fechados')}>
           🗂️ Fechados
         </button>
+        {!isMaster && (
+          <button className={`tab ${activeTab === 'meu' ? 'tab-active' : ''}`} onClick={() => setActiveTab('meu')}>
+            📈 Meu desempenho
+          </button>
+        )}
         {isMaster && (
           <button className={`tab ${activeTab === 'relatório' ? 'tab-active' : ''}`} onClick={() => setActiveTab('relatório')}>
             📈 Relatório
@@ -1082,6 +1108,8 @@ export default function App() {
           onClienteAtendeu={setClienteAtendeu}
         />
       )}
+
+      {activeTab === 'meu' && !isMaster && <RelatorioTab leads={leads} scopeNome={session.nome} />}
 
       {activeTab === 'relatório' && isMaster && <RelatorioTab leads={leads} />}
 
