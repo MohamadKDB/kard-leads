@@ -15,8 +15,8 @@ const STATUSES = [
 
 const STATUS_MAP = Object.fromEntries(STATUSES.map((s) => [s.key, s]))
 
-const OPERACIONAL_COLS = ['a_ligar', 'em_contato', 'link_enviado']
-const FECHADOS_COLS = ['fechado', 'perdido', 'nao_atende', 'numero_invalido']
+const OPERACIONAL_COLS = ['a_ligar', 'em_contato']
+const FECHADOS_COLS = ['link_enviado', 'perdido', 'nao_atende', 'numero_invalido']
 
 const NEXT = {
   a_ligar: [
@@ -26,7 +26,7 @@ const NEXT = {
     { to: 'numero_invalido', label: '⚠ Nº inválido', kind: 'numinvalido' },
   ],
   em_contato: [
-    { to: 'link_enviado', label: '🔗 Enviar link', kind: 'fechou' },
+    { to: 'link_enviado', label: '🔗 Link enviado', kind: 'fechou' },
     { to: 'perdido', label: '✕ Perdido', kind: 'perdido' },
     { to: 'nao_atende', label: '⊘ Não atende', kind: 'naoatende' },
     { to: 'numero_invalido', label: '⚠ Nº inválido', kind: 'numinvalido' },
