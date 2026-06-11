@@ -148,7 +148,7 @@ function Login({ onLogin }) {
     <div className="login-wrap">
       <form className="login-card" onSubmit={submit}>
         <div className="login-logo">
-          KARD<b>CRM</b>
+          KARD<b>LEADS</b>
         </div>
         <div className="login-sub">Entre com seu usuário e senha</div>
         <input
@@ -323,46 +323,332 @@ function Board({ columns, visible, loading, busyIds, onStatus, onNumeroOk, onCli
   )
 }
 
-function RelatorioTab({ leads, metrics }) {
-  const statusBreakdown = useMemo(() => {
-    return STATUSES.map((st) => ({
-      ...st,
-      count: leads.filter((l) => l.status === st.key).length,
-    }))
-  }, [leads])
+const startOfToday = () => {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d.getTime()
+}
 
-  const atendidos = leads.filter((l) => l.cliente_atendeu).length
-  const numerosOk = leads.filter((l) => l.numero_ok === 'ok').length
+const DATE_PRESETS = [
+  { key: 'hoje', label: 'Hoje', from: () => startOfToday(), to: () => null },
+  { key: '7d', label: '7 dias', from: () => Date.now() - 7 * 86400000, to: () => null },
+  { key: '30d', label: '30 dias', from: () => Date.now() - 30 * 86400000, to: () => null },
+  { key: 'mes', label: 'Este mês', from: () => new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime(), to: () => null },
+  { key: 'tudo', label: 'Tudo', from: () => null, to: () => null },
+]
+
+const fmtDur = (ms) => {
+  if (ms == null) return '—'
+  const min = Math.round(ms / 60000)
+  if (min < 1) return '< 1 min'
+  if (min < 60) return `${min} min`
+  const h = Math.floor(min / 60)
+  const mm = min % 60
+  if (h < 24) return mm ? `${h}h ${mm}min` : `${h}h`
+  const d = Math.floor(h / 24)
+  const hh = h % 24
+  return hh ? `${d}d ${hh}h` : `${d}d`
+}
+
+const pct = (n, d) => (d ? Math.round((n * 100) / d) : 0)
+
+const pctStr = (n, d) => {
+  if (!d) return '0%'
+  const raw = (n * 100) / d
+  if (raw > 0 && raw < 1) return '<1%'
+  if (raw > 99 && raw < 100) return '>99%'
+  return `${Math.round(raw)}%`
+}
+
+function computeReport(leads) {
+  const sum = (arr, f) => arr.reduce((a, l) => a + (Number(l[f]) || 0), 0)
+  const total = leads.length
+  const fila = leads.filter((l) => l.status === 'a_ligar')
+  const emContato = leads.filter((l) => l.status === 'em_contato')
+  const fechados = leads.filter((l) => l.status === 'fechado')
+  const perdidos = leads.filter((l) => l.status === 'perdido')
+  const naoAtende = leads.filter((l) => l.status === 'nao_atende')
+  const trabalhados = total - fila.length
+  const atendidos = leads.filter((l) => l.cliente_atendeu || l.status === 'em_contato' || l.status === 'fechado')
+
+  const valorFechado = sum(fechados, 'valor_liberado')
+  const valorPipeline = sum([...fila, ...emContato], 'valor_liberado')
+  const valorPerdido = sum(perdidos, 'valor_liberado')
+  const ticketMedio = fechados.length ? valorFechado / fechados.length : 0
+
+  const avgMs = (arr, fEnd, fStart) => {
+    const xs = arr
+      .map((l) => new Date(l[fEnd]).getTime() - new Date(l[fStart]).getTime())
+      .filter((x) => x > 0 && isFinite(x))
+    return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null
+  }
+  const tContato = avgMs(leads.filter((l) => l.em_contato_em && l.created_at), 'em_contato_em', 'created_at')
+  const tFecho = avgMs(fechados.filter((l) => l.fechado_em && l.created_at), 'fechado_em', 'created_at')
+
+  const parados = fila.filter((l) => l.created_at && Date.now() - new Date(l.created_at).getTime() > 2 * 86400000).length
+
+  const ops = {}
+  for (const l of leads) {
+    const r = l.responsavel
+    if (!r) continue
+    ops[r] = ops[r] || { nome: r, assumidos: 0, atendidos: 0, fechados: 0, valor: 0 }
+    ops[r].assumidos++
+    if (l.cliente_atendeu || l.status === 'em_contato' || l.status === 'fechado') ops[r].atendidos++
+    if (l.status === 'fechado') {
+      ops[r].fechados++
+      ops[r].valor += Number(l.valor_liberado) || 0
+    }
+  }
+  const operadores = Object.values(ops).sort((a, b) => b.valor - a.valor || b.fechados - a.fechados)
+
+  return {
+    total,
+    trabalhados,
+    atendidos: atendidos.length,
+    fila: fila.length,
+    emContato: emContato.length,
+    fechados: fechados.length,
+    perdidos: perdidos.length,
+    naoAtende: naoAtende.length,
+    numerosInvalidos: leads.filter((l) => l.numero_ok === 'invalido').length,
+    valorFechado,
+    valorPipeline,
+    valorPerdido,
+    ticketMedio,
+    convGeral: pctStr(fechados.length, total),
+    convAtendidos: pctStr(fechados.length, atendidos.length),
+    taxaAtendimento: pctStr(atendidos.length, trabalhados),
+    taxaFechamento: pctStr(fechados.length, trabalhados),
+    tContato,
+    tFecho,
+    parados,
+    operadores,
+  }
+}
+
+function FunnelRow({ label, value, total, color }) {
+  const w = total ? Math.max(4, Math.round((value * 100) / total)) : 0
+  return (
+    <div className="funnel-row">
+      <div className="funnel-label">{label}</div>
+      <div className="funnel-bar-wrap">
+        <div className="funnel-bar" style={{ width: `${w}%`, background: color }}>
+          <span className="funnel-bar-val">{value}</span>
+        </div>
+      </div>
+      <div className="funnel-pct">{pctStr(value, total)}</div>
+    </div>
+  )
+}
+
+function RelatorioTab({ leads }) {
+  const [preset, setPreset] = useState('tudo')
+  const [custom, setCustom] = useState({ from: '', to: '' })
+
+  const range = useMemo(() => {
+    if (custom.from || custom.to) {
+      const from = custom.from ? new Date(custom.from + 'T00:00:00').getTime() : null
+      const to = custom.to ? new Date(custom.to + 'T23:59:59').getTime() : null
+      return { from, to }
+    }
+    const p = DATE_PRESETS.find((x) => x.key === preset) || DATE_PRESETS[4]
+    return { from: p.from(), to: p.to() }
+  }, [preset, custom])
+
+  const periodoLabel = useMemo(() => {
+    const fmt = (t) => new Date(t).toLocaleDateString('pt-BR')
+    if (range.from && range.to) return `${fmt(range.from)} a ${fmt(range.to)}`
+    if (range.from) return `desde ${fmt(range.from)}`
+    return 'Todo o período'
+  }, [range])
+
+  const filtered = useMemo(() => {
+    if (range.from == null && range.to == null) return leads
+    return leads.filter((l) => {
+      if (!l.created_at) return false
+      const t = new Date(l.created_at).getTime()
+      if (range.from != null && t < range.from) return false
+      if (range.to != null && t > range.to) return false
+      return true
+    })
+  }, [leads, range])
+
+  const r = useMemo(() => computeReport(filtered), [filtered])
+
+  const statusBreakdown = STATUSES.map((st) => ({
+    ...st,
+    count: filtered.filter((l) => l.status === st.key).length,
+  }))
+
+  const gerarPDF = () => window.print()
 
   return (
     <div className="relatorio-container">
+      <div className="print-header">
+        <div className="print-logo">
+          KARD<b>LEADS</b>
+        </div>
+        <div className="print-title">
+          <div>Relatório de Performance Comercial</div>
+          <div className="print-meta">
+            Período: {periodoLabel} · Gerado em {new Date().toLocaleString('pt-BR')}
+          </div>
+        </div>
+      </div>
+
+      <div className="relatorio-toolbar no-print">
+        <div className="date-filter">
+          {DATE_PRESETS.map((p) => (
+            <button
+              key={p.key}
+              className={`date-chip ${!custom.from && !custom.to && preset === p.key ? 'date-chip-active' : ''}`}
+              onClick={() => {
+                setPreset(p.key)
+                setCustom({ from: '', to: '' })
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+          <span className="date-sep">|</span>
+          <input
+            type="date"
+            value={custom.from}
+            onChange={(e) => setCustom((c) => ({ ...c, from: e.target.value }))}
+          />
+          <span className="date-sep">→</span>
+          <input
+            type="date"
+            value={custom.to}
+            onChange={(e) => setCustom((c) => ({ ...c, to: e.target.value }))}
+          />
+        </div>
+        <button className="btn-pdf" onClick={gerarPDF}>
+          🖨️ Gerar PDF
+        </button>
+      </div>
+
+      <div className="periodo-tag">📅 {periodoLabel} · {r.total} leads</div>
+
       <div className="relatorio-section">
-        <h3>📊 Métricas Principais</h3>
-        <div className="metrics" style={{ marginBottom: '0' }}>
-          <Metric value={metrics.total} label="Leads totais" />
-          <Metric value={metrics.hoje} label="Entraram hoje" />
-          <Metric value={metrics.fila} label="Na fila" />
-          <Metric value={metrics.fechados} label="Fechados" />
-          <Metric value={metrics.conv} label="Conversão" />
+        <h3>💰 Visão Executiva</h3>
+        <div className="kpi-grid">
+          <div className="kpi kpi-hl">
+            <div className="kpi-value">{brl(r.valorFechado)}</div>
+            <div className="kpi-label">Valor fechado</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-value">{brl(r.valorPipeline)}</div>
+            <div className="kpi-label">Pipeline em aberto</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-value">{brl(r.ticketMedio)}</div>
+            <div className="kpi-label">Ticket médio</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-value">{r.convGeral}</div>
+            <div className="kpi-label">Conversão geral</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-value">{brl(r.valorPerdido)}</div>
+            <div className="kpi-label">Valor perdido</div>
+          </div>
         </div>
       </div>
 
       <div className="relatorio-section">
-        <h3>📞 Atendimento</h3>
-        <div className="metrics" style={{ marginBottom: '0' }}>
-          <Metric value={atendidos} label="Clientes atendidos" />
-          <Metric value={numerosOk} label="Números válidos" />
-          <Metric value={`${Math.round((atendidos * 100) / (leads.length || 1))}%`} label="Taxa de contato" />
+        <h3>🔻 Funil de Conversão</h3>
+        <div className="funnel">
+          <FunnelRow label="Leads recebidos" value={r.total} total={r.total} color="var(--primary)" />
+          <FunnelRow label="Trabalhados" value={r.trabalhados} total={r.total} color="var(--blue)" />
+          <FunnelRow label="Atenderam" value={r.atendidos} total={r.total} color="#7c6fe0" />
+          <FunnelRow label="Fechados" value={r.fechados} total={r.total} color="var(--green)" />
         </div>
       </div>
 
       <div className="relatorio-section">
-        <h3>📈 Status dos Leads</h3>
+        <h3>📞 Eficiência de Atendimento</h3>
+        <div className="kpi-grid">
+          <div className="kpi">
+            <div className="kpi-value">{r.taxaAtendimento}</div>
+            <div className="kpi-label">Taxa de atendimento</div>
+            <div className="kpi-hint">{r.atendidos} de {r.trabalhados} trabalhados</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-value">{r.convAtendidos}</div>
+            <div className="kpi-label">Conversão s/ atendidos</div>
+            <div className="kpi-hint">{r.fechados} de {r.atendidos} atendidos</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-value">{r.taxaFechamento}</div>
+            <div className="kpi-label">Taxa de fechamento</div>
+            <div className="kpi-hint">{r.fechados} de {r.trabalhados} trabalhados</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-value">{r.numerosInvalidos}</div>
+            <div className="kpi-label">Números inválidos</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="relatorio-section">
+        <h3>⏱️ Velocidade (SLA)</h3>
+        <div className="kpi-grid">
+          <div className="kpi">
+            <div className="kpi-value">{fmtDur(r.tContato)}</div>
+            <div className="kpi-label">Até 1º contato</div>
+          </div>
+          <div className="kpi">
+            <div className="kpi-value">{fmtDur(r.tFecho)}</div>
+            <div className="kpi-label">Até fechamento</div>
+          </div>
+          <div className="kpi">
+            <div className={`kpi-value ${r.parados > 0 ? 'kpi-warn' : ''}`}>{r.parados}</div>
+            <div className="kpi-label">Parados na fila +2d</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="relatorio-section">
+        <h3>🏆 Desempenho por Operador</h3>
+        {r.operadores.length === 0 ? (
+          <div className="empty">Nenhum lead atribuído no período.</div>
+        ) : (
+          <table className="rank-table">
+            <thead>
+              <tr>
+                <th>Operador</th>
+                <th>Assumidos</th>
+                <th>Atenderam</th>
+                <th>Fechados</th>
+                <th>Conversão</th>
+                <th>Valor fechado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {r.operadores.map((o) => (
+                <tr key={o.nome}>
+                  <td>{o.nome}</td>
+                  <td>{o.assumidos}</td>
+                  <td>{o.atendidos}</td>
+                  <td>{o.fechados}</td>
+                  <td>{pctStr(o.fechados, o.assumidos)}</td>
+                  <td>{brl(o.valor)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="relatorio-section">
+        <h3>📊 Distribuição por Status</h3>
         <div className="status-breakdown">
           {statusBreakdown.map((st) => (
             <div key={st.key} className="status-item">
               <div className="status-item-label">{st.label}</div>
               <div className="status-item-value">{st.count}</div>
+              <div className="status-item-pct">{pctStr(st.count, r.total)}</div>
             </div>
           ))}
         </div>
@@ -658,7 +944,7 @@ export default function App() {
       <header>
         <div>
           <div className="logo">
-            KARD<b>CRM</b>
+            KARD<b>LEADS</b>
           </div>
           <div className="sub">Leads do motor de score · atualiza a cada 10s</div>
         </div>
@@ -741,7 +1027,7 @@ export default function App() {
         />
       )}
 
-      {activeTab === 'relatório' && isMaster && <RelatorioTab leads={leads} metrics={metrics} />}
+      {activeTab === 'relatório' && isMaster && <RelatorioTab leads={leads} />}
 
       {activeTab === 'usuarios' && isMaster && <UsuariosTab token={session.token} onError={setError} />}
     </div>
