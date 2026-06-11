@@ -729,6 +729,7 @@ function RelatorioTab({ leads, scopeNome }) {
         {r.operadores.length === 0 ? (
           <div className="empty">Nenhum lead atribuído no período.</div>
         ) : (
+          <div className="table-scroll">
           <table className="rank-table">
             <thead>
               <tr>
@@ -755,12 +756,14 @@ function RelatorioTab({ leads, scopeNome }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
       )}
 
       <div className="relatorio-section">
         <h3>📡 Canais de Contato</h3>
+        <div className="table-scroll">
         <table className="rank-table">
           <thead>
             <tr>
@@ -787,6 +790,7 @@ function RelatorioTab({ leads, scopeNome }) {
             ))}
           </tbody>
         </table>
+        </div>
         <div className="kpi-hint" style={{ marginTop: 10 }}>
           Um lead pode usar mais de um canal, então a soma pode passar do total. {r.semCanal} lead(s) trabalhado(s) sem canal marcado.
         </div>

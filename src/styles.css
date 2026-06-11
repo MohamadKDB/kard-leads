@@ -537,26 +537,19 @@ input[type='search']:focus {
   font-size: 12px;
 }
 
-@media (max-width: 640px) {
-  .board {
-    padding: 0 16px 40px;
-  }
-  header {
-    padding: 14px 16px;
-  }
-  .metrics,
-  .board {
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-}
-
 .tabs {
   display: flex;
   gap: 0;
   border-bottom: 1px solid var(--line);
   padding: 0 28px;
   background: var(--panel);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .tab {
@@ -569,6 +562,8 @@ input[type='search']:focus {
   border-bottom: 3px solid transparent;
   transition: all 0.2s;
   letter-spacing: 0.5px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .tab:hover {
@@ -1087,6 +1082,11 @@ input[type='search']:focus {
   text-align: right;
 }
 
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .rank-table {
   width: 100%;
   border-collapse: collapse;
@@ -1128,6 +1128,72 @@ input[type='search']:focus {
 /* print header — escondido na tela, aparece no PDF */
 .print-header {
   display: none;
+}
+
+/* ===== Responsivo mobile (no fim do arquivo para vencer as regras-base) ===== */
+@media (max-width: 640px) {
+  header {
+    padding: 14px 16px;
+    gap: 10px;
+  }
+  .logo {
+    font-size: 16px;
+  }
+  /* busca ocupa a linha inteira no celular */
+  input[type='search'] {
+    width: 100%;
+  }
+  .spacer {
+    display: none;
+  }
+  .metrics {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+  .metric-value {
+    font-size: 19px;
+  }
+  .board {
+    padding: 0 16px 40px;
+  }
+  .column {
+    min-width: 86vw;
+  }
+  .tabs {
+    padding: 0 12px;
+  }
+  .tab {
+    padding: 13px 14px;
+  }
+  /* containers internos com menos respiro lateral */
+  .relatorio-container,
+  .ajustes-container {
+    padding: 18px 16px;
+  }
+  .relatorio-toolbar {
+    gap: 10px;
+  }
+  .toolbar-acoes {
+    width: 100%;
+  }
+  .toolbar-acoes .btn-pdf,
+  .toolbar-acoes .btn-excel {
+    flex: 1 1 0;
+  }
+  /* KPIs com valores grandes em R$ ficam melhores em coluna única */
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+  /* tabelas largas rolam lado a lado em vez de espremer */
+  .rank-table {
+    min-width: 540px;
+  }
+  /* funil: rótulo mais estreito pra sobrar barra */
+  .funnel-row {
+    grid-template-columns: 92px 1fr 40px;
+    gap: 8px;
+  }
 }
 
 /* ===== Impressão / PDF ===== */
