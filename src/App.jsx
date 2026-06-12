@@ -241,7 +241,7 @@ const CANAIS = [
   { key: 'canal_whatsapp', label: '🟢 WhatsApp' },
 ]
 
-function LeadCard({ lead, busy, onStatus, onNumeroOk, onClienteAtendeu, onCanal }) {
+function LeadCard({ lead, busy, onStatus, onNumeroOk, onCanal }) {
   const actions = NEXT[lead.status] || []
   const phoneValid = isValidPhone(lead.phone)
   const numeroStatus = lead.numero_ok || (phoneValid ? 'desconhecido' : 'invalido')
@@ -274,16 +274,6 @@ function LeadCard({ lead, busy, onStatus, onNumeroOk, onClienteAtendeu, onCanal 
       </div>
 
       <div className="card-controls">
-        <label className="atendeu-check">
-          <input
-            type="checkbox"
-            checked={lead.cliente_atendeu || false}
-            onChange={(e) => onClienteAtendeu(lead.id, e.target.checked)}
-            disabled={busy}
-          />
-          <span>Cliente atendeu</span>
-        </label>
-
         <label className="numero-select">
           <span>Número</span>
           <select value={lead.numero_ok || ''} onChange={(e) => onNumeroOk(lead.id, e.target.value || null)} disabled={busy}>
@@ -329,7 +319,7 @@ function LeadCard({ lead, busy, onStatus, onNumeroOk, onClienteAtendeu, onCanal 
   )
 }
 
-function Board({ columns, visible, loading, busyIds, onStatus, onNumeroOk, onClienteAtendeu, onCanal }) {
+function Board({ columns, visible, loading, busyIds, onStatus, onNumeroOk, onCanal }) {
   return (
     <div className={`board cols-${columns.length}`}>
       {columns.map((key) => {
@@ -354,7 +344,6 @@ function Board({ columns, visible, loading, busyIds, onStatus, onNumeroOk, onCli
                 busy={busyIds.has(l.id)}
                 onStatus={onStatus}
                 onNumeroOk={onNumeroOk}
-                onClienteAtendeu={onClienteAtendeu}
                 onCanal={onCanal}
               />
             ))}
@@ -412,8 +401,10 @@ function computeReport(leads) {
   const perdidos = leads.filter((l) => l.status === 'perdido')
   const naoAtende = leads.filter((l) => l.status === 'nao_atende')
   const trabalhados = total - fila.length
+  // "Atendeu" agora é calculado pela coluna do lead: só quem passou por
+  // Em contato / Link enviado / Pago garantiu que a pessoa atendeu.
   const ATENDEU = (l) =>
-    l.cliente_atendeu || l.status === 'em_contato' || l.status === 'link_enviado' || l.status === 'fechado'
+    l.status === 'em_contato' || l.status === 'link_enviado' || l.status === 'fechado'
   const atendidos = leads.filter(ATENDEU)
 
   const valorFechado = sum(fechados, 'valor_liberado')
@@ -523,7 +514,7 @@ function exportarExcel(leads) {
     Score: l.score || '',
     Status: STATUS_MAP[l.status]?.label || l.status,
     Responsável: l.responsavel || '',
-    'Cliente atendeu': l.cliente_atendeu ? 'Sim' : 'Não',
+    Atendeu: ['em_contato', 'link_enviado', 'fechado'].includes(l.status) ? 'Sim' : 'Não',
     Número: l.numero_ok === 'ok' ? 'OK' : l.numero_ok === 'invalido' ? 'Inválido' : '',
     Canais: [l.canal_telefone && 'Telefone', l.canal_rcs && 'RCS', l.canal_whatsapp && 'WhatsApp']
       .filter(Boolean)
@@ -1100,24 +1091,6 @@ export default function App() {
     }
   }
 
-  const setClienteAtendeu = async (id, value) => {
-    setBusyIds((s) => new Set(s).add(id))
-    try {
-      await api('kard-crm-cliente-atendeu', { method: 'POST', token: session.token, body: { id, cliente_atendeu: value } })
-      setLeads((ls) => ls.map((l) => (l.id === id ? { ...l, cliente_atendeu: value } : l)))
-      setError('')
-      load()
-    } catch (e) {
-      setError(`Erro ao atualizar atendimento (${e.message})`)
-    } finally {
-      setBusyIds((s) => {
-        const n = new Set(s)
-        n.delete(id)
-        return n
-      })
-    }
-  }
-
   const visible = useMemo(() => {
     if (!query) return leads
     const s = query.toLowerCase()
@@ -1227,7 +1200,6 @@ export default function App() {
             busyIds={busyIds}
             onStatus={setStatus}
             onNumeroOk={setNumeroOk}
-            onClienteAtendeu={setClienteAtendeu}
             onCanal={setCanal}
           />
         </>
@@ -1241,7 +1213,6 @@ export default function App() {
           busyIds={busyIds}
           onStatus={setStatus}
           onNumeroOk={setNumeroOk}
-          onClienteAtendeu={setClienteAtendeu}
           onCanal={setCanal}
         />
       )}

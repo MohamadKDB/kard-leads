@@ -600,22 +600,6 @@ input[type='search']:focus {
   color: var(--muted);
 }
 
-.atendeu-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--text);
-}
-
-.atendeu-check input {
-  accent-color: var(--primary);
-  cursor: pointer;
-  width: 16px;
-  height: 16px;
-}
-
 .numero-select {
   display: flex;
   align-items: center;
