@@ -6,7 +6,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'https://staging-n8n-editor.ea
 const STATUSES = [
   { key: 'a_ligar', label: 'A ligar', color: 'var(--primary)' },
   { key: 'em_contato', label: 'Em contato', color: 'var(--blue)' },
-  { key: 'link_enviado', label: 'Link enviado', color: '#9b8cff' },
+  { key: 'link_enviado', label: 'Contato efetivado', color: '#9b8cff' },
   { key: 'fechado', label: 'Pago', color: 'var(--green)' },
   { key: 'perdido', label: 'Perdido', color: 'var(--red)' },
   { key: 'nao_atende', label: 'Não atende', color: 'var(--gray)' },
@@ -26,7 +26,7 @@ const NEXT = {
     { to: 'numero_invalido', label: '⚠ Nº inválido', kind: 'numinvalido' },
   ],
   em_contato: [
-    { to: 'link_enviado', label: '🔗 Link enviado', kind: 'fechou' },
+    { to: 'link_enviado', label: '✔ Contato efetivado', kind: 'fechou' },
     { to: 'perdido', label: '✕ Perdido', kind: 'perdido' },
     { to: 'nao_atende', label: '⊘ Não atende', kind: 'naoatende' },
     { to: 'numero_invalido', label: '⚠ Nº inválido', kind: 'numinvalido' },
@@ -239,6 +239,7 @@ const CANAIS = [
   { key: 'canal_telefone', label: '📞 Telefone' },
   { key: 'canal_rcs', label: '💬 RCS' },
   { key: 'canal_whatsapp', label: '🟢 WhatsApp' },
+  { key: 'canal_email', label: '✉️ Email' },
 ]
 
 function LeadCard({ lead, busy, onStatus, onNumeroOk, onCanal }) {
@@ -251,6 +252,7 @@ function LeadCard({ lead, busy, onStatus, onNumeroOk, onCanal }) {
       canal_telefone: !!lead.canal_telefone,
       canal_rcs: !!lead.canal_rcs,
       canal_whatsapp: !!lead.canal_whatsapp,
+      canal_email: !!lead.canal_email,
       [key]: !lead[key],
     })
 
@@ -443,6 +445,7 @@ function computeReport(leads) {
     { key: 'canal_telefone', label: '📞 Telefone' },
     { key: 'canal_rcs', label: '💬 RCS' },
     { key: 'canal_whatsapp', label: '🟢 WhatsApp' },
+    { key: 'canal_email', label: '✉️ Email' },
   ]
   const canais = canalDefs.map((c) => {
     const used = leads.filter((l) => l[c.key])
@@ -457,7 +460,7 @@ function computeReport(leads) {
     }
   })
   const semCanal = leads.filter(
-    (l) => l.status !== 'a_ligar' && !l.canal_telefone && !l.canal_rcs && !l.canal_whatsapp
+    (l) => l.status !== 'a_ligar' && !l.canal_telefone && !l.canal_rcs && !l.canal_whatsapp && !l.canal_email
   ).length
 
   return {
@@ -516,7 +519,7 @@ function exportarExcel(leads) {
     Responsável: l.responsavel || '',
     Atendeu: ['em_contato', 'link_enviado', 'fechado'].includes(l.status) ? 'Sim' : 'Não',
     Número: l.numero_ok === 'ok' ? 'OK' : l.numero_ok === 'invalido' ? 'Inválido' : '',
-    Canais: [l.canal_telefone && 'Telefone', l.canal_rcs && 'RCS', l.canal_whatsapp && 'WhatsApp']
+    Canais: [l.canal_telefone && 'Telefone', l.canal_rcs && 'RCS', l.canal_whatsapp && 'WhatsApp', l.canal_email && 'Email']
       .filter(Boolean)
       .join(', '),
     'Entrou em': l.created_at ? new Date(l.created_at).toLocaleString('pt-BR') : '',
@@ -650,7 +653,7 @@ function RelatorioTab({ leads, scopeNome }) {
           </div>
           <div className="kpi">
             <div className="kpi-value">{r.linkEnviado}</div>
-            <div className="kpi-label">Links enviados</div>
+            <div className="kpi-label">Contatos efetivados</div>
             <div className="kpi-hint">{brl(r.valorLinkEnviado)} em aberto</div>
           </div>
           <div className="kpi">
@@ -666,7 +669,7 @@ function RelatorioTab({ leads, scopeNome }) {
           <FunnelRow label="Leads recebidos" value={r.total} total={r.total} color="var(--primary)" />
           <FunnelRow label="Trabalhados" value={r.trabalhados} total={r.total} color="var(--blue)" />
           <FunnelRow label="Atenderam" value={r.atendidos} total={r.total} color="#7c6fe0" />
-          <FunnelRow label="Link enviado" value={r.linkEnviado} total={r.total} color="#9b8cff" />
+          <FunnelRow label="Contato efetivado" value={r.linkEnviado} total={r.total} color="#9b8cff" />
           <FunnelRow label="Fechados" value={r.fechados} total={r.total} color="var(--green)" />
         </div>
       </div>
@@ -727,7 +730,7 @@ function RelatorioTab({ leads, scopeNome }) {
                 <th>Operador</th>
                 <th>Assumidos</th>
                 <th>Atenderam</th>
-                <th>Links</th>
+                <th>Efetivados</th>
                 <th>Fechados</th>
                 <th>Conversão</th>
                 <th>Valor fechado</th>
@@ -761,7 +764,7 @@ function RelatorioTab({ leads, scopeNome }) {
               <th>Canal</th>
               <th>Usado em</th>
               <th>Atenderam</th>
-              <th>Link enviado</th>
+              <th>Contato efetivado</th>
               <th>Fechados</th>
               <th>Conversão</th>
               <th>Valor fechado</th>
@@ -967,6 +970,7 @@ export default function App() {
   const [loading, setLoading] = useState(true)
   const [busyIds, setBusyIds] = useState(new Set())
   const [activeTab, setActiveTab] = useState('operacional')
+  const [opFilter, setOpFilter] = useState('tudo')
   const [trocarSenha, setTrocarSenha] = useState(false)
   const [tema, setTema] = useState(() => localStorage.getItem(TEMA_KEY) || 'dark')
 
@@ -1102,6 +1106,21 @@ export default function App() {
     )
   }, [leads, query])
 
+  // Filtro por data de entrada no Operacional (ex.: ligar só nos leads de hoje)
+  const opVisible = useMemo(() => {
+    const p = DATE_PRESETS.find((x) => x.key === opFilter) || DATE_PRESETS[4]
+    const from = p.from()
+    const to = p.to()
+    if (from == null && to == null) return visible
+    return visible.filter((l) => {
+      if (!l.created_at) return false
+      const t = new Date(l.created_at).getTime()
+      if (from != null && t < from) return false
+      if (to != null && t > to) return false
+      return true
+    })
+  }, [visible, opFilter])
+
   const metrics = useMemo(() => {
     const total = leads.length
     const fechados = leads.filter((l) => l.status === 'fechado').length
@@ -1188,14 +1207,30 @@ export default function App() {
             <Metric value={metrics.total} label={isMaster ? 'Leads totais' : 'Meus leads'} />
             <Metric value={metrics.hoje} label="Entraram hoje" />
             <Metric value={metrics.fila} label="Na fila (a ligar)" />
-            <Metric value={metrics.linkEnviado} label="Link enviado" />
+            <Metric value={metrics.linkEnviado} label="Contato efetivado" />
             <Metric value={metrics.fechados} label="Pagos" />
             <Metric value={metrics.conv} label="Conversão" />
           </div>
 
+          <div className="op-filter">
+            <span className="op-filter-label">📅 Entrada:</span>
+            <div className="date-filter">
+              {DATE_PRESETS.map((p) => (
+                <button
+                  key={p.key}
+                  className={`date-chip ${opFilter === p.key ? 'date-chip-active' : ''}`}
+                  onClick={() => setOpFilter(p.key)}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <span className="op-filter-count">{opVisible.filter((l) => OPERACIONAL_COLS.includes(l.status)).length} leads</span>
+          </div>
+
           <Board
             columns={OPERACIONAL_COLS}
-            visible={visible}
+            visible={opVisible}
             loading={loading}
             busyIds={busyIds}
             onStatus={setStatus}

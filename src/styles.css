@@ -354,6 +354,27 @@ input[type='search']:focus {
   margin-top: 2px;
 }
 
+.op-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 0 28px 14px;
+}
+
+.op-filter-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.op-filter-count {
+  font: 600 12px 'JetBrains Mono', monospace;
+  color: var(--muted);
+}
+
 .board {
   display: flex;
   gap: 14px;
@@ -1140,6 +1161,9 @@ input[type='search']:focus {
   }
   .board {
     padding: 0 16px 40px;
+  }
+  .op-filter {
+    padding: 0 16px 12px;
   }
   .column {
     min-width: 86vw;
